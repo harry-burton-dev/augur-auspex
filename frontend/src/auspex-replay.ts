@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import type { AuspexApi, Change, Changes, MapFloor } from './api.js';
-import { changeLine } from './words.js';
+import { APP_NAME, changeLine } from './words.js';
 
 /** How far back the replay goes: as far as Auspex remembers. */
 export const REPLAY_DAYS = 30;
@@ -178,7 +178,7 @@ export class AuspexReplay extends LitElement {
       </section>
       <div class="ax-can">
         <p class="ax-label">You can</p>
-        <p>Play the month, or pick a day to see what had changed by then. Nothing here changes anything: <b>an admin</b> changes who’s on ${f.name} and which apps are on. Auspex remembers 30 days.</p>
+        <p>Play the month, or pick a day to see what had changed by then. Nothing here changes anything: <b>an admin</b> changes who’s on ${f.name} and which apps are on. ${APP_NAME} remembers ${REPLAY_DAYS} days.</p>
       </div>`;
   }
 

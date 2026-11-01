@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import type { Fact } from '@augur/ui-kit';
 import { usable, type AuspexApi, type MapFloor, type PersonMap } from './api.js';
 import { styles } from './styles.js';
-import { whyHere } from './words.js';
+import { APP_NAME, whyHere } from './words.js';
 
 /**
  * Auspex's card on Home, on a team's floor or the org's: the way up from
@@ -69,7 +69,7 @@ export class AuspexGlance extends LitElement {
   }
 
   override render() {
-    if (this.failure) return html`<ui-state kind="error" heading="Couldn’t reach Auspex" body=${this.failure} action="Try again" @ui-action=${() => void this.load()}></ui-state>`;
+    if (this.failure) return html`<ui-state kind="error" heading=${`Couldn’t reach ${APP_NAME}`} body=${this.failure} action="Try again" @ui-action=${() => void this.load()}></ui-state>`;
     const map = this.map;
     const here = map?.floors.find((f) => f.id === this.here);
     if (!map || !here || !this.facts) return html`<ui-facts loading count="3"></ui-facts>`;

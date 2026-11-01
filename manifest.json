@@ -1,6 +1,6 @@
 {
   "id": "auspex",
-  "name": "Auspex",
+  "name": "Explorer",
   "route": "/auspex",
   "entry": "/apps/auspex/entry.js",
   "version": "0.2.1",

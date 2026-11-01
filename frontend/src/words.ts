@@ -1,3 +1,4 @@
+import manifest from '../../manifest.json';
 import type { AppState, Change, ClosedTeam, FloorApp, FloorKind, MapFloor, Named } from './api.js';
 
 /**
@@ -5,6 +6,9 @@ import type { AppState, Change, ClosedTeam, FloorApp, FloorKind, MapFloor, Named
  * "you're a member". Never "principal" or "guardrail". Every "no" says who
  * can change it.
  */
+
+/** The name people see, from the manifest: Explorer. The code name, Auspex, is never shown. */
+export const APP_NAME: string = manifest.name;
 
 /** "Sam", "Sam and Jo", "Sam, Jo and Alex". */
 export const listOf = (names: string[]) => (names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);

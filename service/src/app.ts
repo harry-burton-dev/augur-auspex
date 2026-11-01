@@ -37,7 +37,7 @@ export const buildApp = async ({ callers = callerCheckFromEnv('auspex'), history
 
   const signedIn = (req: FastifyRequest, reply: FastifyReply): Caller | undefined => {
     const caller = callerFromHeaders(req.headers);
-    if (!caller) reply.code(401).send({ error: 'unauthenticated', message: 'Sign in to use Auspex.' });
+    if (!caller) reply.code(401).send({ error: 'unauthenticated', message: 'Sign in first.' });
     return caller ?? undefined;
   };
   const onFloor = (req: FastifyRequest, reply: FastifyReply): OnFloor | undefined => {

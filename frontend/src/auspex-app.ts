@@ -8,7 +8,7 @@ import './auspex-replay.js';
 import { mayWalk } from './cutaway.js';
 import { plantLine } from './auspex-plant.js';
 import { styles } from './styles.js';
-import { appLine, appQuestion, changeLine, daysAgo, floorEyebrow, ledBy, listOf, whoCanAdd, whyHere } from './words.js';
+import { APP_NAME, appLine, appQuestion, changeLine, daysAgo, floorEyebrow, ledBy, listOf, whoCanAdd, whyHere } from './words.js';
 
 /**
  * Where Auspex is: your map, one floor, the answer about one app on one floor,
@@ -207,7 +207,7 @@ export class AuspexApp extends LitElement {
     const org = this.org!;
     if (!mayWalk(map, this.userId, this.admin))
       return html`<div class="ax-pane">
-        <ui-heading eyebrow="Auspex" heading="The building" summary="The whole org in cross-section: every team as a room above the teams inside it." size="l" level="1"></ui-heading>
+        <ui-heading eyebrow=${APP_NAME} heading="The building" summary="The whole org in cross-section: every team as a room above the teams inside it." size="l" level="1"></ui-heading>
         <ui-state kind="empty" heading="The building is for leads and admins" body="It shows the shape of the whole org at once, which leads and admins look after. Where you are shows the same teams, and why you can or can’t go into each."></ui-state>
         ${this.can(html`<ui-button kind="tertiary" @click=${() => this.go({ view: 'where' })}>See where you are</ui-button>`, 'Nothing here changes anything.')}
       </div>`;
@@ -217,7 +217,7 @@ export class AuspexApp extends LitElement {
     const parts = [`go into ${stand}`, see ? `see into ${see}` : '', map.closed.length ? `find ${map.closed.length} closed` : ''].filter(Boolean);
     const summary = `${org.name} has ${teams.length + map.closed.length} ${teams.length + map.closed.length === 1 ? 'team' : 'teams'}. You ${listOf(parts)}.`;
     return html`<div class="ax-pane">
-      <ui-heading eyebrow="Auspex" heading="The building" summary=${summary} size="l" level="1"></ui-heading>
+      <ui-heading eyebrow=${APP_NAME} heading="The building" summary=${summary} size="l" level="1"></ui-heading>
       <div class="ax-map">
         <auspex-building .map=${map} here=${this.here} ?admin=${this.admin} plant=${this.plant?.line ?? ''} plant-state=${this.plant?.state ?? 'checking'}
           @auspex-floor=${(e: CustomEvent<{ id: string }>) => this.go({ view: 'floor', id: e.detail.id })} @auspex-plant=${() => this.go({ view: 'plant' })}></auspex-building>
@@ -277,7 +277,7 @@ export class AuspexApp extends LitElement {
       ...map.closed.map((t) => [t.id, whoCanAdd(t)] as [string, string]),
     ]);
     return html`<div class="ax-pane">
-      <ui-heading eyebrow="Auspex" heading="Where you are" summary=${`You can go to ${stand} ${stand === 1 ? 'floor' : 'floors'}.${here ? ` You’re on ${here.kind === 'personal' ? 'your own floor' : here.name} now.` : ''}`} size="l" level="1"></ui-heading>
+      <ui-heading eyebrow=${APP_NAME} heading="Where you are" summary=${`You can go to ${stand} ${stand === 1 ? 'floor' : 'floors'}.${here ? ` You’re on ${here.kind === 'personal' ? 'your own floor' : here.name} now.` : ''}`} size="l" level="1"></ui-heading>
       <div class="ax-map">
         <auspex-map .map=${map} here=${this.here} .reasons=${reasons} @auspex-floor=${(e: CustomEvent<{ id: string }>) => this.go({ view: 'floor', id: e.detail.id })}></auspex-map>
       </div>
@@ -328,7 +328,7 @@ export class AuspexApp extends LitElement {
       <ui-facts .items=${facts}></ui-facts>
       ${f.open ? this.renderApps(f, apps) : html`<p class="ax-muted ax-meta">You can see who’s on ${f.name}, ${f.why.kind === 'admin' ? 'as an admin' : `as a lead of ${f.why.kind === 'leads-above' ? f.why.team.name : 'a team above it'}`}. Its apps and what changes on it are for the people on it.</p>`}
       ${f.members?.length ? this.renderPeople(f) : nothing}
-      ${f.kind === 'org' ? html`<p class="ax-muted ax-meta">Everyone at ${f.name} is here: ${f.people} ${f.people === 1 ? 'person' : 'people'}. Auspex shows people on the teams you share with them, and nothing else about them.</p>` : nothing}
+      ${f.kind === 'org' ? html`<p class="ax-muted ax-meta">Everyone at ${f.name} is here: ${f.people} ${f.people === 1 ? 'person' : 'people'}. ${APP_NAME} shows people on the teams you share with them, and nothing else about them.</p>` : nothing}
       ${f.open && f.kind !== 'personal' ? this.renderWeek(f, changes) : nothing}
       ${this.can(
         firstNo ? html`<ui-button kind="tertiary" @click=${() => this.go({ view: 'app', floor: f.id, app: firstNo.id })}>${appQuestion(firstNo, title)}</ui-button>` : nothing,
