@@ -1,0 +1,79 @@
+{
+  "id": "auspex",
+  "name": "Auspex",
+  "route": "/auspex",
+  "entry": "/apps/auspex/entry.js",
+  "version": "0.2.1",
+  "sdk": "^1.4.0",
+  "description": "Where you are on AUGUR, who’s there, and why you can or can’t use things",
+  "icon": "explore",
+  "floors": [
+    "personal",
+    "team",
+    "org"
+  ],
+  "surfaces": [
+    {
+      "floor": "team",
+      "slot": "card",
+      "module": "./Glance"
+    },
+    {
+      "floor": "org",
+      "slot": "card",
+      "module": "./Glance"
+    }
+  ],
+  "search": true,
+  "scopes": [
+    "people:read",
+    "events:subscribe"
+  ],
+  "handles": [
+    "floor.map",
+    "auspex.open",
+    "access.explain"
+  ],
+  "orbit": false,
+  "menu": [
+    {
+      "id": "explore",
+      "label": "Explore",
+      "icon": "atlas",
+      "items": [
+        {
+          "id": "where",
+          "label": "Where you are",
+          "icon": "place",
+          "path": "/map",
+          "detail": "Your floors, and why you can go to each",
+          "keywords": "map floors teams org structure"
+        },
+        {
+          "id": "here",
+          "label": "This floor",
+          "icon": "people",
+          "path": "/here",
+          "detail": "Who’s here and which apps you can use",
+          "keywords": "people apps members leads"
+        },
+        {
+          "id": "building",
+          "label": "The building",
+          "icon": "org",
+          "path": "/building",
+          "detail": "The whole org in cross-section (for leads and admins)",
+          "keywords": "cutaway building teams structure shape lead admin"
+        },
+        {
+          "id": "plant",
+          "label": "Plant room",
+          "icon": "server",
+          "path": "/plant",
+          "detail": "Is every part of AUGUR answering (for admins)",
+          "keywords": "status health services versions backups admin"
+        }
+      ]
+    }
+  ]
+}
