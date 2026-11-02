@@ -3,7 +3,7 @@
   "name": "Explorer",
   "route": "/auspex",
   "entry": "/apps/auspex/entry.js",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "sdk": "^1.4.0",
   "description": "Where you are on AUGUR, who’s there, and why you can or can’t use things",
   "icon": "explore",

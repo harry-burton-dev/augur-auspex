@@ -1,5 +1,25 @@
 # @apps/auspex-frontend
 
+## 0.3.0
+
+### Minor Changes
+
+- 527a413: Explorer is on React and Quill (PER-243): the map, a floor, why an app is on or off, a closed team, the building, the plant room, the replay, who can open a thing (`access.explain`) and its card on Home, with the same words and drawings. It no longer uses the Lit kit, and it now has the rail every app has: Where you are, the floor you're on, your own floor, and the building and the plant room for whoever they're for.
+
+### Patch Changes
+
+- 7f68faa: Auspex is shown to people as Explorer, a platform app (ADR 0032). Its id, route, intents, packages and settings stay `auspex`.
+- Updated dependencies [527a413]
+- Updated dependencies [f8e9b46]
+- Updated dependencies [da54ae3]
+- Updated dependencies [7c8027d]
+- Updated dependencies [d500567]
+- Updated dependencies [a8854e2]
+- Updated dependencies [fccb126]
+- Updated dependencies [d64d724]
+  - @augur/app-kit@0.2.0
+  - @augur/mfe-sdk@1.10.0
+
 ## 0.2.1
 
 ### Patch Changes

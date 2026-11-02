@@ -1,5 +1,14 @@
 # @apps/auspex
 
+## 0.1.2
+
+### Patch Changes
+
+- 7f68faa: Auspex is shown to people as Explorer, a platform app (ADR 0032). Its id, route, intents, packages and settings stay `auspex`.
+- Updated dependencies [137791c]
+- Updated dependencies [2021f8a]
+  - @augur/service-kit@0.11.0
+
 ## 0.1.1
 
 ### Patch Changes
