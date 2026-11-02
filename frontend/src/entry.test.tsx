@@ -1,18 +1,42 @@
-import { describe, expect, it } from 'vitest';
-import type { FloorApp, PersonMap } from './api.js';
+// @vitest-environment happy-dom
+import { act, type ReactNode } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { FloorApp, Part, PersonMap } from './api.js';
 import { AuspexApi } from './api.js';
-import { pathFor, placeFor, type AuspexApp } from './auspex-app.js';
-import { addressFor, AUSPEX_OPEN, FLOOR_MAP, placeForIntent } from './entry.js';
-import { layoutMap } from './layout.js';
 import { ACCESS_EXPLAIN, explain, readExplain, upWords } from './access.js';
-import type { AuspexAccess } from './auspex-access.js';
-import { plantLine, roomsOf, type AuspexPlant } from './auspex-plant.js';
-import { daysOf, tally, type AuspexReplay } from './auspex-replay.js';
-import type { Part } from './api.js';
+import { Access } from './access-view.js';
+import { ExplorerApp } from './app.js';
+import { Building } from './building.js';
 import { layoutCutaway, mayWalk } from './cutaway.js';
-import type { AuspexBuilding } from './auspex-building.js';
+import { addressFor, AUSPEX_OPEN, FLOOR_MAP, placeForIntent } from './entry.js';
 import { INSTALL_STEPS, jobLine, recent, trackOf, UPGRADE_STEPS, upgradeLine, type AppJob } from './jobs.js';
+import { layoutMap } from './layout.js';
+import { pathFor, placeFor, type Place } from './place.js';
+import { Plant, plantLine, roomsOf } from './plant.js';
+import { daysOf, Replay, tally } from './replay.js';
 import { appLine, ledBy, whoCanAdd, whyHere } from './words.js';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+let root: Root | undefined;
+/** Draws a part into the page and lets what it asks for land. */
+const draw = async (node: ReactNode, rounds = 8) => {
+  act(() => root?.unmount());
+  document.body.replaceChildren(document.createElement('div'));
+  const el = document.body.firstElementChild as HTMLElement;
+  root = createRoot(el);
+  act(() => root!.render(node));
+  for (let i = 0; i < rounds; i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
+  return el;
+};
+afterEach(() => {
+  act(() => root?.unmount());
+  root = undefined;
+});
+const title = (el: Element) => el.querySelector('.augur-title')?.textContent;
+const summaryOf = (el: Element) => el.querySelector('.augur-summary')?.textContent;
+const press = (b: Element | null | undefined) => act(() => (b as HTMLElement).click());
 
 /** Acme: Finance (Payroll, Treasury) and Legal (Contracts, inside it Disputes). Alex is on Payroll. */
 const acme: PersonMap = {
@@ -113,23 +137,16 @@ describe('the app', () => {
     });
     return { api, asked };
   };
-  const mount = async (place: object) => {
-    await import('./auspex-app.js');
+  const mount = async (place: Place) => {
     const { api: a, asked } = api();
-    const el = document.createElement('auspex-app') as AuspexApp;
-    Object.assign(el, { api: a, here: 'pay', userId: 'alex', place });
-    document.body.replaceChildren(el);
-    for (let i = 0; i < 10; i++) {
-      await new Promise((r) => setTimeout(r, 5));
-      await el.updateComplete;
-    }
+    const el = await draw(<ExplorerApp api={a} here="pay" userId="alex" place={place} />, 10);
     return { el, asked };
   };
 
   it('opens on the map, with every team on it and the closed ones saying so', async () => {
     const { el } = await mount({ view: 'where' });
-    expect(el.querySelector('ui-heading')!.getAttribute('heading')).toBe('Where you are');
-    const marks = [...el.querySelectorAll('auspex-map .node')].map((n) => n.getAttribute('aria-label'));
+    expect(title(el)).toBe('Where you are');
+    const marks = [...el.querySelectorAll('.auspex-map .node')].map((n) => n.getAttribute('aria-label'));
     expect(marks).toContain('Legal and 2 teams inside. Closed to you. Ask Lee Park, who leads it. An admin adds people to teams.');
     expect(marks.find((m) => m?.startsWith('Payroll'))).toBe('Payroll. You’re a member');
   });
@@ -140,26 +157,29 @@ describe('the app', () => {
     expect([...el.querySelectorAll('.ax-tile .nm')].map((t) => t.textContent)).toEqual(['Board', 'Home', 'Agents', 'Ledger', 'Notes']);
     expect([...el.querySelectorAll('.ax-person .nm')].map((t) => t.textContent)).toEqual(['Sam Okafor', 'Alex Kim']);
     expect(el.querySelector('.ax-events')!.textContent).toContain('Alex Kim joined');
-    expect(el.querySelector('.ax-can ui-button')!.textContent).toBe('Why can’t I use Agents on Payroll?');
+    expect(el.querySelector('.ax-can button')!.textContent).toBe('Why can’t I use Agents on Payroll?');
   });
 
   it('answers why not with the rule that decides it and who set it', async () => {
     const { el } = await mount({ view: 'app', floor: 'pay', app: 'agents' });
-    expect(el.querySelector('ui-heading')!.getAttribute('heading')).toBe('You can’t use Agents here');
+    expect(title(el)).toBe('You can’t use Agents here');
     const steps = [...el.querySelectorAll('.ax-step')].map((s) => [...s.querySelectorAll('.t1, .verdict, .t2')].map((t) => t.textContent).join(' '));
-    expect(steps).toEqual([
-      'Acme Allows it, with no rule of its own',
-      expect.stringMatching(/^Finance blocks it Decides it Set by Ada Lovelace on/),
-      'Payroll No rule of its own',
-    ]);
+    expect(steps).toEqual(['Acme Allows it, with no rule of its own', expect.stringMatching(/^Finance blocks it Decides it Set by Ada Lovelace on/), 'Payroll No rule of its own']);
     expect(el.querySelector('.ax-step.decides.no')).not.toBeNull();
   });
 
   it('says a closed team is there, where it sits and who to ask, and nothing inside it but names', async () => {
     const { el } = await mount({ view: 'floor', id: 'leg' });
-    expect(el.querySelector('ui-heading')!.getAttribute('heading')).toBe('Legal');
+    expect(title(el)).toBe('Legal');
     expect([...el.querySelectorAll('.ax-names li')].map((l) => l.textContent)).toEqual(['Contracts', 'Disputes']);
     expect(el.querySelector('.ax-can')!.textContent).toContain('Lee Park');
+  });
+
+  it('has a rail to its places, each only for whoever it’s for', async () => {
+    const { el } = await mount({ view: 'where' });
+    expect([...el.querySelectorAll('.quill-rail-link')].map((l) => l.textContent)).toEqual(['Where you are', 'Payroll', 'Your own floor']);
+    await press([...el.querySelectorAll('.quill-rail-link')][1]);
+    expect(title(el)).toBe('Payroll');
   });
 });
 
@@ -215,27 +235,19 @@ describe('who can open this (access.explain)', () => {
   });
 
   it('shows each one, who’s left out, and who can change it, over the app that asked', async () => {
-    await import('./auspex-access.js');
     const api = new AuspexApi(async () => new Response(JSON.stringify(acme), { status: 200 }));
-    const el = document.createElement('auspex-access') as AuspexAccess;
-    Object.assign(el, { api, ask, appName: 'Artifacts' });
-    document.body.replaceChildren(el);
-    for (let i = 0; i < 5; i++) {
-      await new Promise((r) => setTimeout(r, 5));
-      await el.updateComplete;
-    }
-    expect(el.querySelector('ui-heading')!.getAttribute('summary')).toBe('At least 4 people can open it.');
+    const done = vi.fn();
+    const el = await draw(<Access api={api} ask={ask} appName="Artifacts" onDone={done} />, 5);
+    expect(summaryOf(el)).toBe('At least 4 people can open it.');
     const rows = [...el.querySelectorAll('.ax-who')].map((r) => r.textContent!.replace(/\s+/g, ' ').trim());
     expect(rows).toHaveLength(5);
     expect(rows[3]).toContain('You’re not on it, so its size isn’t shown');
     expect(rows[4]).toContain('Everyone else at Acme');
     expect(el.querySelector('.ax-can')!.textContent).toContain('Only whoever manages it can change who can open it, in Share.');
-    let done = 0;
-    el.addEventListener('auspex-done', () => done++);
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    el.querySelector<HTMLElement>('.ax-can ui-button')!.click();
-    expect(done).toBe(2);
-    expect(el.querySelector('.ax-can ui-button')!.textContent).toBe('Back to Artifacts');
+    act(() => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    await press(el.querySelector('.ax-can button'));
+    expect(done).toHaveBeenCalledTimes(2);
+    expect(el.querySelector('.ax-can button')!.textContent).toBe('Back to Artifacts');
   });
 });
 
@@ -261,48 +273,31 @@ describe('the replay, for leads and admins', () => {
   });
 
   it('plays forward and lets a day be picked', async () => {
-    await import('./auspex-replay.js');
     const api = new AuspexApi(async (path) => {
       expect(path).toBe('/api/auspex/v1/changes?days=30');
       return new Response(JSON.stringify({ days: 30, changes: [{ at: new Date().toISOString(), kind: 'joined', floor: 'pay', person: 'alex' }], names: { alex: 'Alex Kim' } }), { status: 200 });
     });
-    const el = document.createElement('auspex-replay') as AuspexReplay;
-    Object.assign(el, { api, floor: acme.floors[2] });
-    document.body.replaceChildren(el);
-    for (let i = 0; i < 5; i++) {
-      await new Promise((r) => setTimeout(r, 5));
-      await el.updateComplete;
-    }
-    expect(el.querySelector('ui-heading')!.getAttribute('summary')).toBe('1 change on Payroll: 1 joined.');
+    const el = await draw(<Replay api={api} floor={acme.floors[2]!} />, 5);
+    expect(summaryOf(el)).toBe('1 change on Payroll: 1 joined.');
     expect(el.querySelectorAll('.ax-rday')).toHaveLength(30);
     expect(el.querySelector('.ax-events')!.textContent).toContain('Alex Kim joined');
-    el.querySelectorAll<HTMLButtonElement>('.ax-rday')[3]!.click();
-    await el.updateComplete;
-    expect(el.day).toBe(3);
+    await press(el.querySelectorAll('.ax-rday')[3]);
+    expect(el.querySelectorAll('.ax-rday')[3]!.getAttribute('aria-pressed')).toBe('true');
     expect(el.querySelectorAll('.ax-rday.later')).toHaveLength(26);
-    expect(el.querySelector('#ax-replay-day + p')!.textContent).toBe('Nothing changed on Payroll that day.');
-    el.play();
-    expect(el.playing).toBe(true);
-    el.play();
-    expect(el.playing).toBe(false);
+    expect(el.querySelector('#ax-replay-day ~ p')!.textContent).toBe('Nothing changed on Payroll that day.');
+    const play = () => [...el.querySelectorAll('.ax-scrub button')][0]!;
+    await press(play());
+    expect(play().textContent).toBe('Pause');
+    await press(play());
+    expect(play().textContent).toBe('Play the month');
   });
 
   it('is offered to a floor’s leads, and explained to everyone else', async () => {
-    await import('./auspex-app.js');
     const api = new AuspexApi(async (path) => new Response(JSON.stringify(path.includes('/me/map') ? acme : path.includes('/me/apps') ? { apps } : { days: 7, changes: [], names: {} }), { status: 200 }));
-    const show = async (props: object) => {
-      const el = document.createElement('auspex-app') as AuspexApp;
-      Object.assign(el, { api, here: 'pay', place: { view: 'floor', id: 'pay' }, ...props });
-      document.body.replaceChildren(el);
-      for (let i = 0; i < 8; i++) {
-        await new Promise((r) => setTimeout(r, 5));
-        await el.updateComplete;
-      }
-      return el;
-    };
-    const lead = await show({ userId: 'sam' });
-    expect([...lead.querySelectorAll('ui-button')].map((b) => b.textContent)).toContain('Replay the last 30 days');
-    const member = await show({ userId: 'alex' });
+    const show = (userId: string) => draw(<ExplorerApp api={api} here="pay" userId={userId} place={{ view: 'floor', id: 'pay' }} />);
+    const lead = await show('sam');
+    expect([...lead.querySelectorAll('button')].map((b) => b.textContent)).toContain('Replay the last 30 days');
+    const member = await show('alex');
     expect(member.querySelector('.ax-section:last-of-type')!.textContent).toContain('Payroll’s leads and admins can replay its last 30 days.');
     expect(placeFor('/floors/pay/replay', 'pay')).toEqual({ view: 'replay', id: 'pay' });
     expect(pathFor({ view: 'replay', id: 'pay' })).toBe('/floors/pay/replay');
@@ -330,7 +325,6 @@ describe('the plant room, for admins', () => {
   });
 
   const mount = async (admin: boolean) => {
-    await import('./auspex-plant.js');
     const asked: string[] = [];
     const api = new AuspexApi(async (path) => {
       asked.push(path);
@@ -343,13 +337,7 @@ describe('the plant room, for admins', () => {
             : { running: { version: '0.6.0', channel: 'beta' }, feed: 'on', available: { version: '0.7.0' }, needsYou: [{ message: 'x' }], updaterSeenAt: new Date().toISOString() };
       return new Response(JSON.stringify(body), { status: 200 });
     });
-    const el = document.createElement('auspex-plant') as AuspexPlant;
-    Object.assign(el, { api, admin });
-    document.body.replaceChildren(el);
-    for (let i = 0; i < 5; i++) {
-      await new Promise((r) => setTimeout(r, 5));
-      await el.updateComplete;
-    }
+    const el = await draw(<Plant api={api} admin={admin} />, 5);
     return { el, asked };
   };
 
@@ -367,14 +355,12 @@ describe('the plant room, for admins', () => {
     expect(el.querySelector('.ax-machine.slow .st')!.textContent).toBe('Slow: 1400 ms');
     expect(el.querySelectorAll('.ax-machine')).toHaveLength(9);
     expect(el.textContent).toContain('1 thing needs you first');
-    el.remove();
   });
 
   it('tells anyone else what it is, and asks for nothing', async () => {
     const { el, asked } = await mount(false);
     expect(asked).toEqual([]);
-    expect(el.querySelector('ui-state')!.getAttribute('heading')).toBe('The plant room is for admins');
-    el.remove();
+    expect(el.querySelector('.quill-state-title')!.textContent).toBe('The plant room is for admins');
   });
 });
 
@@ -430,11 +416,9 @@ describe('the building, for leads and admins', () => {
   });
 
   it('draws every room as a link, your door on the ground, and the plant room under it for admins', async () => {
-    await import('./auspex-building.js');
-    const el = document.createElement('auspex-building') as AuspexBuilding;
-    Object.assign(el, { map: acme, here: 'pay', admin: true, plant: 'All 9 parts are answering.', plantState: 'up' });
-    document.body.replaceChildren(el);
-    await el.updateComplete;
+    const floor = vi.fn();
+    const drawn = (admin: boolean) => draw(<Building map={acme} here="pay" admin={admin} plant="All 9 parts are answering." plantState="up" onFloor={floor} onPlant={() => {}} />, 0);
+    const el = await drawn(true);
     const labels = [...el.querySelectorAll('.room')].map((r) => r.getAttribute('aria-label'));
     expect(labels).toContain('Payroll. You can go here. 2 people. You’re here.');
     expect(labels).toContain('Legal. Closed to you.');
@@ -442,26 +426,15 @@ describe('the building, for leads and admins', () => {
     expect(labels.at(-1)).toMatch(/^Your own floor\. Only you can go in/);
     expect(el.querySelectorAll('.stair')).toHaveLength(1);
     expect(el.querySelector('.basement')!.getAttribute('aria-label')).toBe('The plant room. All 9 parts are answering.');
-    let floor = '';
-    el.addEventListener('auspex-floor', (e) => (floor = (e as CustomEvent<{ id: string }>).detail.id));
-    el.querySelector<SVGGElement>('.room.closed')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-    expect(floor).toBe('leg');
-    el.admin = false;
-    await el.updateComplete;
-    expect(el.querySelector('.basement')).toBeNull();
+    act(() => void el.querySelector('.room.closed')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    expect(floor).toHaveBeenCalledWith('leg');
+    expect((await drawn(false)).querySelector('.basement')).toBeNull();
   });
 
   it('tells anyone else who it’s for', async () => {
-    await import('./auspex-app.js');
     const api = new AuspexApi(async () => new Response(JSON.stringify(acme), { status: 200 }));
-    const el = document.createElement('auspex-app') as AuspexApp;
-    Object.assign(el, { api, here: 'pay', userId: 'alex', place: placeFor('/building', 'pay') });
-    document.body.replaceChildren(el);
-    for (let i = 0; i < 5; i++) {
-      await new Promise((r) => setTimeout(r, 5));
-      await el.updateComplete;
-    }
-    expect(el.querySelector('ui-state')!.getAttribute('heading')).toBe('The building is for leads and admins');
+    const el = await draw(<ExplorerApp api={api} here="pay" userId="alex" place={placeFor('/building', 'pay')} />, 5);
+    expect(el.querySelector('.quill-state-title')!.textContent).toBe('The building is for leads and admins');
     expect(pathFor({ view: 'building' })).toBe('/building');
   });
 });
