@@ -1,5 +1,11 @@
 # @apps/auspex
 
+## 0.3.2
+
+### Patch Changes
+
+- f710322: Explorer is built and released from its own repository now, signed by this repository's release workflow. Nothing changes for people using it.
+
 ## 0.1.2
 
 ### Patch Changes
