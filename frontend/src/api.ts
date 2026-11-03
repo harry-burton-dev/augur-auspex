@@ -5,7 +5,11 @@
  * changed lately comes from Auspex's own service.
  */
 
+import type { Changes, Names, Problem } from '../../service/src/api-types.js';
 import type { Installs, PlatformUpgrade, RunnerJobs } from './jobs.js';
+
+// Explorer's own service's wire types are written once, in the service's api-types.ts, and shared with it.
+export type { Change, ChangeKind, Changes } from '../../service/src/api-types.js';
 
 export type FloorKind = 'personal' | 'team' | 'org';
 export type MemberRole = 'member' | 'lead';
@@ -74,22 +78,6 @@ export interface FloorApp {
   hasRole?: boolean;
 }
 
-export interface Change {
-  at: string;
-  kind: 'joined' | 'left' | 'team-made' | 'team-renamed' | 'app-on' | 'app-off' | 'app-blocked' | 'app-rule-cleared' | 'app-removed';
-  floor?: string;
-  person?: string;
-  team?: string;
-  app?: string;
-  name?: string;
-}
-
-export interface Changes {
-  days: number;
-  changes: Change[];
-  names: Record<string, string>;
-}
-
 /** One part of AUGUR as the gateway last found it (the gateway's `/status`, for admins). */
 export interface Part {
   name: string;
@@ -147,7 +135,7 @@ export class AuspexApi {
   private async get<T>(path: string, floor?: string): Promise<T> {
     // A floor other than the one they're on: the gateway checks they can stand on it.
     const res = await this.fetch(path, { headers: { accept: 'application/json', ...(floor ? { 'X-Workspace-Id': floor } : {}) } });
-    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    const body = (await res.json().catch(() => ({}))) as Partial<Problem>;
     if (!res.ok) throw new AuspexError(body.message ?? `Couldn’t load this (${res.status}).`, res.status);
     return body as T;
   }
@@ -187,6 +175,6 @@ export class AuspexApi {
 
   async names(ids: string[]) {
     if (!ids.length) return {};
-    return (await this.get<{ names: Record<string, string> }>(`/api/auspex/v1/names?ids=${ids.map(encodeURIComponent).join(',')}`)).names;
+    return (await this.get<Names>(`/api/auspex/v1/names?ids=${ids.map(encodeURIComponent).join(',')}`)).names;
   }
 }

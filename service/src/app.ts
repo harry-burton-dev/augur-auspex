@@ -1,5 +1,6 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { callerCheckFromEnv, callerFromHeaders, health, packageVersion, PeopleUnavailable, signedCallers, type Caller, type CallerCheck, type CallerWorkspace, type DirectorySearch } from '@augur/service-kit';
+import type { Changes, Names } from './api-types.ts';
 import { History, KEEP_DAYS, type Change } from './history.ts';
 
 /** The major version of the API this service serves. Its routes go under /v1, as the platform's do. */
@@ -78,7 +79,7 @@ export const buildApp = async ({ callers = callerCheckFromEnv('auspex'), history
           const days = req.query.days ?? 7;
           // Nothing happens to anyone's own floor that someone else did.
           const changes: Change[] = caller.workspace.kind === 'personal' ? [] : history.on(caller.workspace.id, { days, orgFloor: caller.workspace.kind === 'org' });
-          return { days, changes, names: await named(changes.flatMap((c) => [c.person, c.team].filter((x): x is string => Boolean(x)))) };
+          return { days, changes, names: await named(changes.flatMap((c) => [c.person, c.team].filter((x): x is string => Boolean(x)))) } satisfies Changes;
         },
       );
 
@@ -90,7 +91,7 @@ export const buildApp = async ({ callers = callerCheckFromEnv('auspex'), history
           if (!signedIn(req, reply)) return reply;
           const ids = req.query.ids.split(',').map((s) => s.trim()).filter(Boolean);
           if (ids.length > MAX_NAMED) return reply.code(400).send({ error: 'too-many', message: `Ask for at most ${MAX_NAMED} names at once.` });
-          return { names: await named(ids) };
+          return { names: await named(ids) } satisfies Names;
         },
       );
 

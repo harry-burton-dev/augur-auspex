@@ -1,4 +1,5 @@
 import { PLATFORM_TOPICS, type DomainEvent } from '@augur/service-kit';
+import type { Change } from './api-types.ts';
 
 /** How long Auspex remembers: as long as the events service keeps events, so a restart loses nothing. */
 export const KEEP_DAYS = 30;
@@ -7,18 +8,8 @@ const DAY = 24 * 60 * 60 * 1000;
 /** What Auspex follows: who joined or left a team, teams made or renamed, and apps turned on, off or blocked. */
 export const FOLLOWED = ['platform.team.*', 'platform.app.*'];
 
-/** One change, as Auspex tells it: what happened, on which floor, to whom or what. Ids only; names come later. */
-export interface Change {
-  at: string;
-  kind: 'joined' | 'left' | 'team-made' | 'team-renamed' | 'app-on' | 'app-off' | 'app-blocked' | 'app-rule-cleared' | 'app-removed';
-  /** The floor it happened on; absent when it was everywhere (an app turned off for the whole org). */
-  floor?: string;
-  person?: string;
-  team?: string;
-  app?: string;
-  /** A team's new name. */
-  name?: string;
-}
+/** One change, as Auspex tells it (see `api-types.ts`). */
+export type { Change };
 
 const KINDS: Record<string, Change['kind']> = {
   [PLATFORM_TOPICS.memberAdded]: 'joined',
