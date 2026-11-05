@@ -1,5 +1,16 @@
 # @apps/auspex
 
+## 0.4.0
+
+### Minor Changes
+
+- c8dd397: Explorer says what kind of app each one is (AUGUR ADR 0032). Its manifest calls it a platform app, and it needs SDK 1.11 or later, the first that knows the kind, so an older AUGUR refuses it with a reason instead of failing to register it. A floor's apps come in two groups, "For your work" then "For using AUGUR", and an app's answer says in one sentence what kind it is and whether it ships with AUGUR. A built-in app's step now reads "It’s built into AUGUR".
+- 97f144c: Explorer's service starts the one way every app's does, on service kit 0.13: `startAppService` listens, gives the registry this version's frontend, puts Explorer in the catalogue and stops cleanly on SIGTERM, and `appServer` checks the gateway's signed caller, answers every error as problem details and serves /healthz. Its refusals (signed out, no floor, too many names) are problem details too.
+
+### Patch Changes
+
+- 7e99c44: Explorer keeps its own entry in the Backstage catalog, `catalog-info.yaml`, written by `augur-app catalog` from the manifest and the package.json files. CI checks it is current, and Version packages rewrites it.
+
 ## 0.3.3
 
 ### Patch Changes
