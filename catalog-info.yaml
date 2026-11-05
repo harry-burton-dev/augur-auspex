@@ -1,0 +1,99 @@
+# Written by `augur-app catalog` from manifest.json and the package.json files. Don't edit it by hand.
+{
+  "apiVersion": "backstage.io/v1alpha1",
+  "kind": "System",
+  "metadata": {
+    "name": "auspex",
+    "title": "Explorer",
+    "description": "Where you are on AUGUR, who’s there, and why you can or can’t use things",
+    "annotations": {
+      "github.com/project-slug": "harry-burton-dev/augur-auspex",
+      "backstage.io/source-location": "url:https://github.com/harry-burton-dev/augur-auspex/tree/main/",
+      "augur.dev/release-unit": "app/auspex",
+      "augur.dev/version": "0.3.3",
+      "augur.dev/app-id": "auspex",
+      "augur.dev/route": "/auspex",
+      "augur.dev/sdk-range": "^1.11.0 || ^2.0.0",
+      "augur.dev/category": "platform",
+      "augur.dev/floors": "personal,team,org",
+      "augur.dev/scopes": "people:read,events:subscribe"
+    }
+  },
+  "spec": {
+    "owner": "group:default/augur-core",
+    "domain": "augur"
+  }
+}
+---
+{
+  "apiVersion": "backstage.io/v1alpha1",
+  "kind": "Component",
+  "metadata": {
+    "name": "apps-auspex-frontend",
+    "title": "@apps/auspex-frontend",
+    "description": "Auspex's micro frontend. Built as one ES module the shell imports from the registry's entry URL.",
+    "annotations": {
+      "github.com/project-slug": "harry-burton-dev/augur-auspex",
+      "backstage.io/source-location": "url:https://github.com/harry-burton-dev/augur-auspex/tree/main/frontend/",
+      "augur.dev/package": "@apps/auspex-frontend",
+      "augur.dev/version": "0.3.3",
+      "augur.dev/release-unit": "app/auspex",
+      "augur.dev/app-id": "auspex"
+    }
+  },
+  "spec": {
+    "type": "website",
+    "lifecycle": "experimental",
+    "owner": "group:default/augur-core",
+    "system": "auspex",
+    "providesApis": [
+      "api:default/auspex-intents"
+    ]
+  }
+}
+---
+{
+  "apiVersion": "backstage.io/v1alpha1",
+  "kind": "Component",
+  "metadata": {
+    "name": "apps-auspex",
+    "title": "@apps/auspex",
+    "description": "Auspex's service: its API behind the gateway at /api/auspex.",
+    "annotations": {
+      "github.com/project-slug": "harry-burton-dev/augur-auspex",
+      "backstage.io/source-location": "url:https://github.com/harry-burton-dev/augur-auspex/tree/main/service/",
+      "augur.dev/package": "@apps/auspex",
+      "augur.dev/version": "0.3.3",
+      "augur.dev/release-unit": "app/auspex",
+      "augur.dev/app-id": "auspex"
+    }
+  },
+  "spec": {
+    "type": "service",
+    "lifecycle": "experimental",
+    "owner": "group:default/augur-core",
+    "system": "auspex",
+    "consumesApis": [
+      "api:default/events-api",
+      "api:default/registry-api"
+    ],
+    "dependsOn": []
+  }
+}
+---
+{
+  "apiVersion": "backstage.io/v1alpha1",
+  "kind": "API",
+  "metadata": {
+    "name": "auspex-intents",
+    "title": "Explorer intents",
+    "description": "What other apps can ask Explorer for, through ctx.raise or ctx.request"
+  },
+  "spec": {
+    "type": "augur-intent",
+    "lifecycle": "experimental",
+    "owner": "group:default/augur-core",
+    "system": "auspex",
+    "definition": "{\n  \"intents\": [\n    \"floor.map\",\n    \"auspex.open\",\n    \"access.explain\"\n  ]\n}"
+  }
+}
