@@ -37,7 +37,7 @@ let mounted: HTMLElement | undefined;
  * Opens Explorer as the shell does, at a path below its route, as Alex on Payroll
  * unless told otherwise, with `answer` standing in for the gateway.
  */
-const openAt = async (path: string, answer: (path: string, init?: RequestInit) => Promise<Response>, { userId = 'alex', admin = false, rounds = 10 } = {}) => {
+const openAt = async (path: string, answer: (path: string, init?: RequestInit) => Promise<Response>, { userId = 'alex', admin = false, rounds = 10, intent }: { userId?: string; admin?: boolean; rounds?: number; intent?: { type: string; payload: unknown } } = {}) => {
   act(() => root?.unmount());
   if (mounted) act(() => explorer.unmount(mounted!));
   document.body.replaceChildren(document.createElement('div'));
@@ -47,6 +47,7 @@ const openAt = async (path: string, answer: (path: string, init?: RequestInit) =
     user: { id: userId, roles: admin ? ['admin'] : [] },
     workspace: { id: 'pay', kind: 'team', name: 'Payroll' },
     path,
+    ...(intent ? { intent } : {}),
     fetch: async (input, init) => answer(String(input).replace(/^https?:\/\/[^/]+/, ''), init),
   });
   act(() => explorer.mount(el, ctx));
@@ -207,6 +208,13 @@ describe('the app', () => {
     expect(title(el)).toBe('Payroll');
     // The place is on the address bar, below Explorer's route, so it can be shared and Back comes back to it.
     expect(window.location.pathname).toBe('/auspex/floors/pay');
+  });
+
+  it('opens on the floor an intent names, and says so on the address bar', async () => {
+    const { answer } = gateway();
+    const el = await openAt('/', answer, { intent: { type: FLOOR_MAP, payload: { floor: 'fin' } } });
+    expect(title(el)).toBe('Finance');
+    expect(window.location.pathname).toBe('/auspex/floors/fin');
   });
 });
 
