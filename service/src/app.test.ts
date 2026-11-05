@@ -81,7 +81,11 @@ describe('auspex', () => {
     const { app } = await withHistory();
     expect((await app.inject({ method: 'GET', url: '/v1/names?ids=sam,nobody', headers: on(payroll) })).json()).toEqual({ names: { sam: 'Sam Okafor' } });
     const many = Array.from({ length: 51 }, (_, i) => `p${i}`).join(',');
-    expect((await app.inject({ method: 'GET', url: `/v1/names?ids=${many}`, headers: on(payroll) })).statusCode).toBe(400);
+    const tooMany = await app.inject({ method: 'GET', url: `/v1/names?ids=${many}`, headers: on(payroll) });
+    expect(tooMany.statusCode).toBe(400);
+    // A problem (RFC 9457) that says the limit, as every refusal is.
+    expect(tooMany.headers['content-type']).toMatch(/^application\/problem\+json/);
+    expect(tooMany.json()).toMatchObject({ status: 400, reason: 'too_many', detail: expect.stringMatching(/at most 50/) });
   });
 
   it('finds teams for Find, each opening on its floor', async () => {

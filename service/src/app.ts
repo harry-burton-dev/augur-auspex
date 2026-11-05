@@ -1,7 +1,8 @@
-import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
-import { callerCheckFromEnv, callerFromHeaders, health, packageVersion, PeopleUnavailable, signedCallers, type Caller, type CallerCheck, type CallerWorkspace, type DirectorySearch } from '@augur/service-kit';
+import Fastify from 'fastify';
+import { appServer, floorCaller, packageVersion, PeopleUnavailable, Problem, serviceFastifyOptions, signedInCaller, type CallerCheck, type DirectorySearch } from '@augur/service-kit';
 import type { Changes, Names } from './api-types.ts';
 import { History, KEEP_DAYS, type Change } from './history.ts';
+import { manifest } from './manifest.ts';
 
 /** The major version of the API this service serves. Its routes go under /v1, as the platform's do. */
 export const API_VERSION = 'v1';
@@ -16,8 +17,6 @@ export interface Options {
   directory?: DirectorySearch;
 }
 
-type OnFloor = Caller & { workspace: CallerWorkspace };
-
 /** What Find takes from an app (the SDK's `SearchAnswer`). */
 interface SearchAnswer {
   results: { id: string; title: string; detail?: string; path?: string }[];
@@ -30,25 +29,13 @@ const MAX_NAMED = 50;
 
 const noDirectory: DirectorySearch = async () => ({ people: [], teams: [] });
 
-export const buildApp = async ({ callers = callerCheckFromEnv('auspex'), history = new History(), directory = noDirectory }: Options = {}) => {
-  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
-  // Only the gateway's signed word says who is calling: headers anyone could send are dropped.
-  app.addHook('onRequest', signedCallers(callers));
-  app.get('/healthz', async () => health('auspex', version, API_VERSION));
-
-  const signedIn = (req: FastifyRequest, reply: FastifyReply): Caller | undefined => {
-    const caller = callerFromHeaders(req.headers);
-    if (!caller) reply.code(401).send({ error: 'unauthenticated', message: 'Sign in first.' });
-    return caller ?? undefined;
-  };
-  const onFloor = (req: FastifyRequest, reply: FastifyReply): OnFloor | undefined => {
-    const caller = signedIn(req, reply);
-    if (caller && !caller.workspace) {
-      reply.code(400).send({ error: 'floor-needed', message: 'Say which floor you’re asking about (X-Workspace-Id).' });
-      return undefined;
-    }
-    return caller as OnFloor | undefined;
-  };
+export const buildApp = async ({ callers, history = new History(), directory = noDirectory }: Options = {}) => {
+  const app = Fastify(serviceFastifyOptions());
+  // Only the gateway's signed word says who is calling, every error is problem details, and /healthz says what runs.
+  await appServer(app, { manifest, version, api: API_VERSION, ...(callers ? { callers } : {}) });
+  // Each throws a problem (401 signed out, 400 no floor) that appServer answers.
+  const signedIn = signedInCaller(manifest);
+  const onFloor = floorCaller(manifest);
 
   /** People and teams by id, as far as the directory knows them. If it can't be reached, ids stand in. */
   const named = async (ids: string[]): Promise<Record<string, string>> => {
@@ -73,9 +60,8 @@ export const buildApp = async ({ callers = callerCheckFromEnv('auspex'), history
       app.get<{ Querystring: { days?: number } }>(
         '/changes',
         { schema: { querystring: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: KEEP_DAYS, default: 7 } } } } },
-        async (req, reply) => {
-          const caller = onFloor(req, reply);
-          if (!caller) return reply;
+        async (req) => {
+          const caller = onFloor(req);
           const days = req.query.days ?? 7;
           // Nothing happens to anyone's own floor that someone else did.
           const changes: Change[] = caller.workspace.kind === 'personal' ? [] : history.on(caller.workspace.id, { days, orgFloor: caller.workspace.kind === 'org' });
@@ -87,20 +73,20 @@ export const buildApp = async ({ callers = callerCheckFromEnv('auspex'), history
       app.get<{ Querystring: { ids: string } }>(
         '/names',
         { schema: { querystring: { type: 'object', required: ['ids'], properties: { ids: { type: 'string', maxLength: 4000 } } } } },
-        async (req, reply) => {
-          if (!signedIn(req, reply)) return reply;
+        async (req) => {
+          signedIn(req);
           const ids = req.query.ids.split(',').map((s) => s.trim()).filter(Boolean);
-          if (ids.length > MAX_NAMED) return reply.code(400).send({ error: 'too-many', message: `Ask for at most ${MAX_NAMED} names at once.` });
+          if (ids.length > MAX_NAMED) throw new Problem(400, 'too_many', `Ask for at most ${MAX_NAMED} names at once.`);
           return { names: await named(ids) } satisfies Names;
         },
       );
 
-      /** Find: teams by name, each opening on its floor in Auspex. Closed ones too, which say who can add you. */
+      /** Find: teams by name, each opening on its floor in Explorer. Closed ones too, which say who can add you. */
       app.get<{ Querystring: { q?: string } }>(
         '/search',
         { schema: { querystring: { type: 'object', properties: { q: { type: 'string', maxLength: 200 } } } } },
-        async (req, reply) => {
-          if (!signedIn(req, reply)) return reply;
+        async (req) => {
+          signedIn(req);
           const q = (req.query.q ?? '').trim();
           if (!q) return { results: [] } satisfies SearchAnswer;
           const { teams } = await directory({ q, limit: FOUND }).catch((err: Error) => {
