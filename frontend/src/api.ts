@@ -74,6 +74,11 @@ export interface FloorApp {
   icon?: string;
   description?: string;
   floors?: FloorKind[];
+  /** The kind in force (ADR 0032): a platform app, for using and managing AUGUR, or a pillar app, the foundation of its output. */
+  category?: 'platform' | 'pillar';
+  /** It ships with AUGUR: an admin can turn it off, not remove it. */
+  ships?: boolean;
+  /** The registry's old name for `ships`. */
   pillar?: boolean;
   state: AppState;
   requiredRole?: string;

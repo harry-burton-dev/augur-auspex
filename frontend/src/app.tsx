@@ -8,7 +8,7 @@ import { type Place } from './place.js';
 import { ScreenFor, useGoTo, usePlaceOnScreen } from './places.js';
 import { Plant, plantLine } from './plant.js';
 import { Replay } from './replay.js';
-import { APP_NAME, appLine, appQuestion, changeLine, daysAgo, floorEyebrow, ledBy, listOf, whoCanAdd, whyHere } from './words.js';
+import { APP_NAME, appLine, appQuestion, changeLine, daysAgo, floorEyebrow, ledBy, listOf, whoCanAdd, whyHere, APP_GROUPS, KIND_WORDS, kindSentence } from './words.js';
 
 /** At most this many people are shown as discs before "and N more". */
 const DISCS = 24;
@@ -293,34 +293,41 @@ export function ExplorerApp({ api, here, userId, admin = false, children }: Expl
         />
       );
     if (!list) return <State kind="loading" heading="Looking at the apps here" size="line" />;
-    // What they can use first, then what's off, each by name.
-    const sorted = [...list].sort((a, b) => Number(usable(b)) - Number(usable(a)) || a.name.localeCompare(b.name));
+    // Two groups by kind (ADR 0032): apps for the work, then apps for using AUGUR; in each, what they can use first, then by name.
+    const byUse = (a: FloorApp, b: FloorApp) => Number(usable(b)) - Number(usable(a)) || a.name.localeCompare(b.name);
+    const groups = APP_GROUPS.map((g) => ({ ...g, apps: list.filter((a) => g.holds(a)).sort(byUse) })).filter((g) => g.apps.length);
+    const where = f.kind === 'personal' ? 'your own floor' : f.name;
     return (
-      <section className="ax-section" aria-labelledby="ax-apps">
-        <h2 className="ax-label" id="ax-apps">
-          Apps here
-        </h2>
-        <div className="ax-tiles">
-          {sorted.map((a) => {
-            const on = usable(a);
-            return (
-              <button
-                key={a.id}
-                type="button"
-                className={`ax-tile ${on ? 'on' : `off ${a.state.why === 'blocked' ? 'blocked' : ''}`}`}
-                onClick={() => go({ view: 'app', floor: f.id, app: a.id })}
-                aria-label={`${a.name}: ${appLine(a, nameOf, f.kind)}. ${appQuestion(a, f.kind === 'personal' ? 'your own floor' : f.name)}`}
-              >
-                <span className="glyph">
-                  <Icon name={(a.icon ?? 'apps') as IconName} size={20} />
-                </span>
-                <span className="nm">{a.name}</span>
-                <span className="st">{appLine(a, nameOf, f.kind)}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      <>
+        {groups.map((g) => (
+          <section key={g.id} className="ax-section" aria-labelledby={`ax-apps-${g.id}`}>
+            <h2 className="ax-label" id={`ax-apps-${g.id}`}>
+              {g.heading}
+            </h2>
+            <div className="ax-tiles">
+              {g.apps.map((a) => {
+                const on = usable(a);
+                const kind = a.category ? `, ${KIND_WORDS[a.category]}` : '';
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className={`ax-tile ${on ? 'on' : `off ${a.state.why === 'blocked' ? 'blocked' : ''}`}`}
+                    onClick={() => go({ view: 'app', floor: f.id, app: a.id })}
+                    aria-label={`${a.name}${kind}: ${appLine(a, nameOf, f.kind)}. ${appQuestion(a, where)}`}
+                  >
+                    <span className="glyph">
+                      <Icon name={(a.icon ?? 'apps') as IconName} size={20} />
+                    </span>
+                    <span className="nm">{a.name}</span>
+                    <span className="st">{appLine(a, nameOf, f.kind)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </>
     );
   };
 
@@ -573,7 +580,7 @@ export function ExplorerApp({ api, here, userId, admin = false, children }: Expl
 
     if (s.why === 'platform') {
       summary = `${a.name} is part of AUGUR itself, so it’s on everywhere for everyone.`;
-      steps = [step('org', 'AUGUR', 'It comes with the platform', 'yes', 'Decides it')];
+      steps = [step('org', 'AUGUR', 'It’s built into AUGUR', 'yes', 'Decides it')];
     } else if (s.why === 'turned-off') {
       summary = `An admin has turned ${a.name} off for everyone.`;
       steps = [step('org', org!.name, 'Turned off everywhere by an admin', 'no', 'Decides it')];
@@ -608,6 +615,7 @@ export function ExplorerApp({ api, here, userId, admin = false, children }: Expl
 
     // Where else it's on for them, said rather than offered: Explorer doesn't move you between floors.
     const elsewhere = yes ? [] : map!.floors.filter((x) => x.open && x.id !== f.id && (apps.current.get(x.id) as FloorApp[] | undefined)?.some?.((y) => y.id === a.id && usable(y)));
+    const kindLine = kindSentence(a);
     const changer = a.hasRole === false ? 'an admin, who gives roles' : 'an admin';
     return (
       <div className="ax-pane">
@@ -622,6 +630,7 @@ export function ExplorerApp({ api, here, userId, admin = false, children }: Expl
             How this was decided
           </h2>
           <ol className="ax-chain">{steps}</ol>
+          {kindLine ? <p className="ax-muted ax-meta">{kindLine}</p> : null}
         </section>
         <Can>
           {yes ? (
