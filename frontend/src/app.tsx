@@ -5,6 +5,7 @@ import { Building } from './building.js';
 import { mayWalk } from './cutaway.js';
 import { OrgMap } from './map.js';
 import { type Place } from './place.js';
+import { ScreenFor, useGoTo, usePlaceOnScreen } from './places.js';
 import { Plant, plantLine } from './plant.js';
 import { Replay } from './replay.js';
 import { APP_NAME, appLine, appQuestion, changeLine, daysAgo, floorEyebrow, ledBy, listOf, whoCanAdd, whyHere } from './words.js';
@@ -54,14 +55,13 @@ const Quiet = ({ onPress, children }: { onPress: () => void; children: string })
 
 export interface ExplorerAppProps {
   api: AuspexApi;
-  place: Place;
   /** The floor they're on now. */
   here: string;
   userId: string;
   /** They have the admin role: the plant room, and every floor's replay they stand on. */
   admin?: boolean;
-  /** Where the person went, for the address bar. */
-  onPlace?: (place: Place) => void;
+  /** The place on screen, from the address (Explorer's `places`). */
+  children?: ReactNode;
 }
 
 /**
@@ -70,8 +70,9 @@ export interface ExplorerAppProps {
  * heading), what can I do (the "You can" line, at most two actions), and why
  * (a reason on everything, and who can change each "no"). It changes nothing.
  */
-export function ExplorerApp({ api, place: start, here, userId, admin = false, onPlace }: ExplorerAppProps) {
-  const [place, setPlace] = useState<Place>(start);
+export function ExplorerApp({ api, here, userId, admin = false, children }: ExplorerAppProps) {
+  const place = usePlaceOnScreen(here);
+  const goTo = useGoTo();
   const [map, setMap] = useState<PersonMap>();
   const [failure, setFailure] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -95,9 +96,8 @@ export function ExplorerApp({ api, place: start, here, userId, admin = false, on
   useEffect(() => void load(), [load]);
 
   const go = (to: Place) => {
-    setPlace(to);
     setShowAll(false);
-    onPlace?.(to);
+    goTo(to);
     window.scrollTo?.({ top: 0 });
   };
 
@@ -644,37 +644,37 @@ export function ExplorerApp({ api, place: start, here, userId, admin = false, on
   };
 
   // ---- The frame ------------------------------------------------------------
-  let body: ReactNode;
-  if (failure) body = <State kind="error" heading="Couldn’t load your map" body={failure} action="Try again" onAction={() => void load()} />;
-  else if (!map || !org) body = <State kind="loading" heading="Finding where you are" />;
-  else if (place.view === 'where') body = renderWhere(map);
-  else if (place.view === 'building') body = renderBuilding(map);
-  else if (place.view === 'plant')
-    body = (
-      <div className="ax-pane">
-        <Plant api={api} admin={admin} />
-      </div>
-    );
-  else {
+  /** What a place shows: each place's screen draws itself with this. */
+  const screenFor = (place: Place): ReactNode => {
+    if (failure) return <State kind="error" heading="Couldn’t load your map" body={failure} action="Try again" onAction={() => void load()} />;
+    if (!map || !org) return <State kind="loading" heading="Finding where you are" />;
+    if (place.view === 'where') return renderWhere(map);
+    if (place.view === 'building') return renderBuilding(map);
+    if (place.view === 'plant')
+      return (
+        <div className="ax-pane">
+          <Plant api={api} admin={admin} />
+        </div>
+      );
     const id = place.view === 'app' ? place.floor : place.id;
     const floor = floorOf(id);
     const closed = floor ? undefined : map.closed.find((t) => t.id === id);
-    if (closed) body = renderClosed(closed);
-    else if (!floor)
-      body = (
+    if (closed) return renderClosed(closed);
+    if (!floor)
+      return (
         <div className="ax-pane">
           <State heading="No such floor" body="It may have been removed, or the link is wrong." action="See where you are" onAction={() => go({ view: 'where' })} />
         </div>
       );
-    else if (place.view === 'app' && floor.open) body = renderApp(floor, place.app);
-    else if (place.view === 'replay' && mayReplay(floor))
-      body = (
+    if (place.view === 'app' && floor.open) return renderApp(floor, place.app);
+    if (place.view === 'replay' && mayReplay(floor))
+      return (
         <div className="ax-pane">
           <Replay api={api} floor={floor} appName={appName} />
         </div>
       );
-    else body = renderFloor(floor);
-  }
+    return renderFloor(floor);
+  };
 
   // The rail: the places Explorer has, each shown only to whoever it's for.
   const own = map?.floors.find((f) => f.kind === 'personal');
@@ -693,7 +693,7 @@ export function ExplorerApp({ api, place: start, here, userId, admin = false, on
   return (
     <div className="ax-app">
       <AppFrame app={{ name: APP_NAME, icon: 'explore' }} onFront={() => go({ view: 'where' })} rail={rail} railLabel={APP_NAME} screen={screen}>
-        {body}
+        <ScreenFor.Provider value={screenFor}>{children}</ScreenFor.Provider>
       </AppFrame>
     </div>
   );

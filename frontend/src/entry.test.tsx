@@ -2,17 +2,17 @@
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fakeContext } from '@augur/mfe-sdk/testing';
 import type { FloorApp, Part, PersonMap } from './api.js';
 import { AuspexApi } from './api.js';
 import { ACCESS_EXPLAIN, explain, readExplain, upWords } from './access.js';
 import { Access } from './access-view.js';
-import { ExplorerApp } from './app.js';
 import { Building } from './building.js';
 import { layoutCutaway, mayWalk } from './cutaway.js';
-import { addressFor, AUSPEX_OPEN, FLOOR_MAP, placeForIntent } from './entry.js';
+import explorer, { AUSPEX_OPEN, FLOOR_MAP, placeForIntent } from './entry.js';
 import { INSTALL_STEPS, jobLine, recent, trackOf, UPGRADE_STEPS, upgradeLine, type AppJob } from './jobs.js';
 import { layoutMap } from './layout.js';
-import { pathFor, placeFor, type Place } from './place.js';
+import { pathFor, placeFor } from './place.js';
 import { Plant, plantLine, roomsOf } from './plant.js';
 import { daysOf, Replay, tally } from './replay.js';
 import { appLine, ledBy, whoCanAdd, whyHere } from './words.js';
@@ -30,9 +30,36 @@ const draw = async (node: ReactNode, rounds = 8) => {
   for (let i = 0; i < rounds; i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
   return el;
 };
+/** Where Explorer is mounted in these tests, as the shell would at its route. */
+const ROUTE = '/auspex';
+let mounted: HTMLElement | undefined;
+/**
+ * Opens Explorer as the shell does, at a path below its route, as Alex on Payroll
+ * unless told otherwise, with `answer` standing in for the gateway.
+ */
+const openAt = async (path: string, answer: (path: string, init?: RequestInit) => Promise<Response>, { userId = 'alex', admin = false, rounds = 10, intent }: { userId?: string; admin?: boolean; rounds?: number; intent?: { type: string; payload: unknown } } = {}) => {
+  act(() => root?.unmount());
+  if (mounted) act(() => explorer.unmount(mounted!));
+  document.body.replaceChildren(document.createElement('div'));
+  const el = document.body.firstElementChild as HTMLElement;
+  window.history.replaceState(null, '', `${ROUTE}${path === '/' ? '' : path}`);
+  const ctx = fakeContext({
+    user: { id: userId, roles: admin ? ['admin'] : [] },
+    workspace: { id: 'pay', kind: 'team', name: 'Payroll' },
+    path,
+    ...(intent ? { intent } : {}),
+    fetch: async (input, init) => answer(String(input).replace(/^https?:\/\/[^/]+/, ''), init),
+  });
+  act(() => explorer.mount(el, ctx));
+  mounted = el;
+  for (let i = 0; i < rounds; i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
+  return el;
+};
 afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
+  if (mounted) act(() => explorer.unmount(mounted!));
+  mounted = undefined;
 });
 const title = (el: Element) => el.querySelector('.augur-title')?.textContent;
 const summaryOf = (el: Element) => el.querySelector('.augur-summary')?.textContent;
@@ -109,8 +136,6 @@ describe('places', () => {
     expect(placeFor('/here', 'pay')).toEqual({ view: 'floor', id: 'pay' });
     expect(placeFor('/floors/fin/apps/agents', 'pay')).toEqual({ view: 'app', floor: 'fin', app: 'agents' });
     expect(pathFor({ view: 'app', floor: 'fin', app: 'agents' })).toBe('/floors/fin/apps/agents');
-    expect(addressFor('/auspex/floors/fin', '/floors/fin', { view: 'where' })).toBe('/auspex');
-    expect(addressFor('/auspex', '/', { view: 'floor', id: 'pay' })).toBe('/auspex/floors/pay');
   });
 
   it('opens where an intent asks', () => {
@@ -122,9 +147,9 @@ describe('places', () => {
 });
 
 describe('the app', () => {
-  const api = () => {
+  const gateway = () => {
     const asked: { path: string; floor: string | null }[] = [];
-    const api = new AuspexApi(async (path, init) => {
+    const answer = async (path: string, init?: RequestInit) => {
       asked.push({ path, floor: new Headers(init?.headers).get('X-Workspace-Id') });
       const body = path.includes('/me/map')
         ? acme
@@ -134,17 +159,17 @@ describe('the app', () => {
             ? { days: 7, changes: [{ at: new Date().toISOString(), kind: 'joined', floor: 'pay', person: 'alex', team: 'pay' }], names: { alex: 'Alex Kim' } }
             : { names: { ada: 'Ada Lovelace' } };
       return new Response(JSON.stringify(body), { status: 200 });
-    });
-    return { api, asked };
+    };
+    return { answer, asked };
   };
-  const mount = async (place: Place) => {
-    const { api: a, asked } = api();
-    const el = await draw(<ExplorerApp api={a} here="pay" userId="alex" place={place} />, 10);
+  const mount = async (path: string) => {
+    const { answer, asked } = gateway();
+    const el = await openAt(path, answer);
     return { el, asked };
   };
 
   it('opens on the map, with every team on it and the closed ones saying so', async () => {
-    const { el } = await mount({ view: 'where' });
+    const { el } = await mount('/');
     expect(title(el)).toBe('Where you are');
     const marks = [...el.querySelectorAll('.auspex-map .node')].map((n) => n.getAttribute('aria-label'));
     expect(marks).toContain('Legal and 2 teams inside. Closed to you. Ask Lee Park, who leads it. An admin adds people to teams.');
@@ -152,7 +177,7 @@ describe('the app', () => {
   });
 
   it('shows a floor as apps, people and its week, asking each floor it shows', async () => {
-    const { el, asked } = await mount({ view: 'floor', id: 'pay' });
+    const { el, asked } = await mount('/floors/pay');
     expect(asked).toContainEqual({ path: '/api/registry/v1/me/apps?workspace=pay', floor: 'pay' });
     expect([...el.querySelectorAll('.ax-tile .nm')].map((t) => t.textContent)).toEqual(['Board', 'Home', 'Agents', 'Ledger', 'Notes']);
     expect([...el.querySelectorAll('.ax-person .nm')].map((t) => t.textContent)).toEqual(['Sam Okafor', 'Alex Kim']);
@@ -161,7 +186,7 @@ describe('the app', () => {
   });
 
   it('answers why not with the rule that decides it and who set it', async () => {
-    const { el } = await mount({ view: 'app', floor: 'pay', app: 'agents' });
+    const { el } = await mount('/floors/pay/apps/agents');
     expect(title(el)).toBe('You can’t use Agents here');
     const steps = [...el.querySelectorAll('.ax-step')].map((s) => [...s.querySelectorAll('.t1, .verdict, .t2')].map((t) => t.textContent).join(' '));
     expect(steps).toEqual(['Acme Allows it, with no rule of its own', expect.stringMatching(/^Finance blocks it Decides it Set by Ada Lovelace on/), 'Payroll No rule of its own']);
@@ -169,17 +194,27 @@ describe('the app', () => {
   });
 
   it('says a closed team is there, where it sits and who to ask, and nothing inside it but names', async () => {
-    const { el } = await mount({ view: 'floor', id: 'leg' });
+    const { el } = await mount('/floors/leg');
     expect(title(el)).toBe('Legal');
     expect([...el.querySelectorAll('.ax-names li')].map((l) => l.textContent)).toEqual(['Contracts', 'Disputes']);
     expect(el.querySelector('.ax-can')!.textContent).toContain('Lee Park');
   });
 
   it('has a rail to its places, each only for whoever it’s for', async () => {
-    const { el } = await mount({ view: 'where' });
+    const { el } = await mount('/');
     expect([...el.querySelectorAll('.quill-rail-link')].map((l) => l.textContent)).toEqual(['Where you are', 'Payroll', 'Your own floor']);
     await press([...el.querySelectorAll('.quill-rail-link')][1]);
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
     expect(title(el)).toBe('Payroll');
+    // The place is on the address bar, below Explorer's route, so it can be shared and Back comes back to it.
+    expect(window.location.pathname).toBe('/auspex/floors/pay');
+  });
+
+  it('opens on the floor an intent names, and says so on the address bar', async () => {
+    const { answer } = gateway();
+    const el = await openAt('/', answer, { intent: { type: FLOOR_MAP, payload: { floor: 'fin' } } });
+    expect(title(el)).toBe('Finance');
+    expect(window.location.pathname).toBe('/auspex/floors/fin');
   });
 });
 
@@ -293,8 +328,8 @@ describe('the replay, for leads and admins', () => {
   });
 
   it('is offered to a floor’s leads, and explained to everyone else', async () => {
-    const api = new AuspexApi(async (path) => new Response(JSON.stringify(path.includes('/me/map') ? acme : path.includes('/me/apps') ? { apps } : { days: 7, changes: [], names: {} }), { status: 200 }));
-    const show = (userId: string) => draw(<ExplorerApp api={api} here="pay" userId={userId} place={{ view: 'floor', id: 'pay' }} />);
+    const answer = async (path: string) => new Response(JSON.stringify(path.includes('/me/map') ? acme : path.includes('/me/apps') ? { apps } : { days: 7, changes: [], names: {} }), { status: 200 });
+    const show = (userId: string) => openAt('/floors/pay', answer, { userId });
     const lead = await show('sam');
     expect([...lead.querySelectorAll('button')].map((b) => b.textContent)).toContain('Replay the last 30 days');
     const member = await show('alex');
@@ -432,8 +467,7 @@ describe('the building, for leads and admins', () => {
   });
 
   it('tells anyone else who it’s for', async () => {
-    const api = new AuspexApi(async () => new Response(JSON.stringify(acme), { status: 200 }));
-    const el = await draw(<ExplorerApp api={api} here="pay" userId="alex" place={placeFor('/building', 'pay')} />, 5);
+    const el = await openAt('/building', async () => new Response(JSON.stringify(acme), { status: 200 }));
     expect(el.querySelector('.quill-state-title')!.textContent).toBe('The building is for leads and admins');
     expect(pathFor({ view: 'building' })).toBe('/building');
   });
