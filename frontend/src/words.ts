@@ -111,3 +111,21 @@ export const changeLine = (c: Change, names: Record<string, string>, appName: (i
       return `${app} was removed`;
   }
 };
+
+/** What each kind of app is called (AUGUR ADR 0032). */
+export const KIND_WORDS = { platform: 'a platform app', pillar: 'a pillar app' } as const;
+
+/** A floor's apps in two groups: apps for the work (pillar apps and every other app), then apps for using AUGUR. */
+export const APP_GROUPS: { id: string; heading: string; holds: (a: FloorApp) => boolean }[] = [
+  { id: 'work', heading: 'For your work', holds: (a) => a.category !== 'platform' },
+  { id: 'augur', heading: 'For using AUGUR', holds: (a) => a.category === 'platform' },
+];
+
+/** One sentence saying what kind of app it is, for the answer; none for an app with no kind. */
+export const kindSentence = (a: FloorApp): string | undefined => {
+  const ships = a.ships ?? a.pillar ?? a.state.why === 'platform';
+  const stays = ships ? ', and ships with every deployment. An admin can turn it off, but not remove it.' : '.';
+  if (a.category === 'platform') return `${a.name} is a platform app: it’s for using and managing AUGUR${stays}`;
+  if (a.category === 'pillar') return `${a.name} is a pillar app: it’s part of the foundation of what AUGUR produces${stays}`;
+  return undefined;
+};

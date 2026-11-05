@@ -83,9 +83,9 @@ const acme: PersonMap = {
 };
 
 const apps: FloorApp[] = [
-  { id: 'home', name: 'Home', icon: 'home', state: { on: true, why: 'platform' } },
+  { id: 'home', name: 'Home', icon: 'home', category: 'platform', state: { on: true, why: 'platform' } },
   { id: 'agents', name: 'Agents', icon: 'agents', state: { on: false, why: 'blocked', by: 'fin', setBy: 'ada', setAt: '2026-10-20T09:00:00Z' } },
-  { id: 'board', name: 'Board', state: { on: true, why: 'set-here', by: 'pay' } },
+  { id: 'board', name: 'Board', category: 'pillar', ships: true, state: { on: true, why: 'set-here', by: 'pay' } },
   { id: 'notes', name: 'Notes', floors: ['personal'], state: { on: false, why: 'not-for-this-kind' } },
   { id: 'ledger', name: 'Ledger', requiredRole: 'publisher', hasRole: false, state: { on: true, why: 'approved' } },
 ];
@@ -179,7 +179,10 @@ describe('the app', () => {
   it('shows a floor as apps, people and its week, asking each floor it shows', async () => {
     const { el, asked } = await mount('/floors/pay');
     expect(asked).toContainEqual({ path: '/api/registry/v1/me/apps?workspace=pay', floor: 'pay' });
-    expect([...el.querySelectorAll('.ax-tile .nm')].map((t) => t.textContent)).toEqual(['Board', 'Home', 'Agents', 'Ledger', 'Notes']);
+    // Apps for the work first, then apps for using AUGUR; in each, usable first, then by name.
+    expect([...el.querySelectorAll('.ax-section h2.ax-label')].map((h) => h.textContent).slice(0, 2)).toEqual(['For your work', 'For using AUGUR']);
+    expect([...el.querySelectorAll('.ax-tile .nm')].map((t) => t.textContent)).toEqual(['Board', 'Agents', 'Ledger', 'Notes', 'Home']);
+    expect(el.querySelector('.ax-tile')!.getAttribute('aria-label')).toMatch(/^Board, a pillar app: /);
     expect([...el.querySelectorAll('.ax-person .nm')].map((t) => t.textContent)).toEqual(['Sam Okafor', 'Alex Kim']);
     expect(el.querySelector('.ax-events')!.textContent).toContain('Alex Kim joined');
     expect(el.querySelector('.ax-can button')!.textContent).toBe('Why can’t I use Agents on Payroll?');
@@ -191,6 +194,14 @@ describe('the app', () => {
     const steps = [...el.querySelectorAll('.ax-step')].map((s) => [...s.querySelectorAll('.t1, .verdict, .t2')].map((t) => t.textContent).join(' '));
     expect(steps).toEqual(['Acme Allows it, with no rule of its own', expect.stringMatching(/^Finance blocks it Decides it Set by Ada Lovelace on/), 'Payroll No rule of its own']);
     expect(el.querySelector('.ax-step.decides.no')).not.toBeNull();
+  });
+
+  it('says what kind of app it is under the answer', async () => {
+    const { el } = await mount('/floors/pay/apps/board');
+    expect(el.querySelector('.ax-pane')!.textContent).toContain('Board is a pillar app: it’s part of the foundation of what AUGUR produces, and ships with every deployment.');
+    const { el: home } = await mount('/floors/pay/apps/home');
+    expect(home.querySelector('.ax-pane')!.textContent).toContain('Home is a platform app: it’s for using and managing AUGUR, and ships with every deployment.');
+    expect(home.querySelector('.ax-step .t2')!.textContent).toBe('It’s built into AUGUR');
   });
 
   it('says a closed team is there, where it sits and who to ask, and nothing inside it but names', async () => {
