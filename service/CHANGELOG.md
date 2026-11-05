@@ -1,5 +1,13 @@
 # @apps/auspex
 
+## 0.3.3
+
+### Patch Changes
+
+- dbc6c72: The wire types between the frontend and the service are written once, in the service's src/api-types.ts, and both sides use them. Types only: the frontend bundle and the service build don't change.
+- e02eb5e: The manifest's SDK range also accepts SDK 2. SDK 2 only stops serving Lit, which this app never used, so the
+  app keeps opening when a deployment moves to an AUGUR shell built on SDK 2.
+
 ## 0.3.2
 
 ### Patch Changes
