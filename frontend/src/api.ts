@@ -5,8 +5,10 @@
  * changed lately comes from Auspex's own service.
  */
 
-import type { Changes, Names, Problem } from '../../service/src/api-types.js';
+import { AppError } from '@augur/app-kit';
+import type { Changes, Names } from '../../service/src/api-types.js';
 import type { Installs, PlatformUpgrade, RunnerJobs } from './jobs.js';
+import { APP_NAME } from './words.js';
 
 // Explorer's own service's wire types are written once, in the service's api-types.ts, and shared with it.
 export type { Change, ChangeKind, Changes } from '../../service/src/api-types.js';
@@ -120,23 +122,20 @@ export const usable = (app: FloorApp) => app.state.on && app.hasRole !== false;
 
 type Fetch = (path: string, init?: RequestInit) => Promise<Response>;
 
-export class AuspexError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
-
 export class AuspexApi {
   constructor(private fetch: Fetch) {}
 
   private async get<T>(path: string, floor?: string): Promise<T> {
     // A floor other than the one they're on: the gateway checks they can stand on it.
-    const res = await this.fetch(path, { headers: { accept: 'application/json', ...(floor ? { 'X-Workspace-Id': floor } : {}) } });
-    const body = (await res.json().catch(() => ({}))) as Partial<Problem>;
-    if (!res.ok) throw new AuspexError(body.message ?? `Couldn’t load this (${res.status}).`, res.status);
+    let res: Response;
+    try {
+      res = await this.fetch(path, { headers: { accept: 'application/json', ...(floor ? { 'X-Workspace-Id': floor } : {}) } });
+    } catch (err) {
+      throw AppError.from(err, { appName: APP_NAME });
+    }
+    const body: unknown = await res.json().catch(() => undefined);
+    // Every failure is an AppError whose message a person can act on: the service's reason, or that it isn't answering.
+    if (!res.ok) throw AppError.fromProblem(res.status, body, { appName: APP_NAME });
     return body as T;
   }
 

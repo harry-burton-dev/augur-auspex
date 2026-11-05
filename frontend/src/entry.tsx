@@ -1,11 +1,14 @@
-import { defineMicroFrontend, type Intent, type MountContext } from '@augur/mfe-sdk';
-import { createRoot, type Root } from 'react-dom/client';
+import { useEffect, useMemo } from 'react';
+import { defineReactApp, type AppProps, type AppSurfaceProps, type PickerProps } from '@augur/app-kit';
+import type { Intent, MountContext } from '@augur/mfe-sdk';
 import { ACCESS_EXPLAIN, readExplain } from './access.js';
 import { Access } from './access-view.js';
 import { AuspexApi } from './api.js';
 import { ExplorerApp } from './app.js';
 import { Glance } from './glance.js';
 import { pathFor, placeFor, type Place } from './place.js';
+import { places } from './places.js';
+import { APP_NAME } from './words.js';
 import styles from './styles.css?inline';
 
 export { pathFor, placeFor, type Place } from './place.js';
@@ -14,16 +17,6 @@ export { pathFor, placeFor, type Place } from './place.js';
 export const AUSPEX_OPEN = 'auspex.open';
 /** Shows someone where they are: Explorer's map, or `{ floor }` to open on one floor. */
 export const FLOOR_MAP = 'floor.map';
-
-/**
- * Where Explorer is in the address bar, so a place in it can be shared and
- * Back goes to the last one: the shell mounts Explorer again with that path.
- */
-export const addressFor = (pathname: string, mountedAt: string, place: Place) => {
-  const inner = mountedAt === '/' ? '' : mountedAt;
-  if (!pathname.endsWith(inner)) return undefined;
-  return `${pathname.slice(0, pathname.length - inner.length).replace(/\/$/, '')}${pathFor(place)}`.replace(/\/$/, '') || '/';
-};
 
 /** Where an intent asks Explorer to start, if it says. */
 export const placeForIntent = (intent: Intent | undefined, here: string): Place | undefined => {
@@ -35,63 +28,45 @@ export const placeForIntent = (intent: Intent | undefined, here: string): Place 
 
 const apiFor = (ctx: MountContext) => new AuspexApi((path, init) => ctx.fetch(path, init));
 
-const roots = new WeakMap<HTMLElement, Root>();
-const STYLE_ID = 'augur-auspex-styles';
+/** The frame round every place: the map, loaded once, and the rail to Explorer's places. */
+function App({ ctx, children }: AppProps<MountContext>) {
+  const api = useMemo(() => apiFor(ctx), [ctx]);
+  return (
+    <ExplorerApp api={api} here={ctx.workspace.id} userId={ctx.user.id} admin={ctx.user.roles.includes('admin')}>
+      {children}
+    </ExplorerApp>
+  );
+}
 
-/** A React root in `el`, with Explorer's stylesheet on the page once. */
-const rootIn = (el: HTMLElement) => {
-  if (!document.getElementById(STYLE_ID)) {
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = styles;
-    document.head.append(style);
-  }
-  const root = createRoot(el);
-  roots.set(el, root);
-  return root;
-};
-const unmount = (el: HTMLElement) => {
-  roots.get(el)?.unmount();
-  roots.delete(el);
+/** Another app asked who can open one of its things: Explorer answers over it, and goes back when done. */
+function WhoCanOpen({ ctx, intent, cancel }: PickerProps<MountContext>) {
+  const api = useMemo(() => apiFor(ctx), [ctx]);
+  const ask = intent.type === ACCESS_EXPLAIN ? readExplain(intent.payload) : undefined;
+  useEffect(() => {
+    if (!ask) cancel();
+  }, [ask, cancel]);
+  return ask ? <Access api={api} ask={ask} appName={ask.thing.appName ?? ''} onDone={cancel} /> : null;
+}
+
+/** The card on Home, on a team's floor or the org's: the way up from here, and three facts. */
+function Card({ ctx }: AppSurfaceProps<MountContext>) {
+  const api = useMemo(() => apiFor(ctx), [ctx]);
+  return <Glance api={api} here={ctx.workspace.id} onOpen={(path) => void ctx.raise({ type: AUSPEX_OPEN, payload: { path } })} />;
+}
+
+/** The address an intent opens Explorer at, if it says. */
+const opensAt = (type: string) => (payload: unknown, ctx: MountContext) => {
+  const at = placeForIntent({ type, payload }, ctx.workspace.id);
+  return at ? pathFor(at) : undefined;
 };
 
 /** Explorer: where you are on AUGUR. What the shell mounts at /auspex. */
-export default defineMicroFrontend({
-  mount(el: HTMLElement, ctx: MountContext) {
-    const root = rootIn(el);
-    // Another app asked who can open one of its things: Explorer answers over it, and goes back when done.
-    const ask = ctx.intent?.type === ACCESS_EXPLAIN ? readExplain(ctx.intent.payload) : undefined;
-    if (ask && ctx.reply) {
-      const reply = ctx.reply;
-      root.render(<Access api={apiFor(ctx)} ask={ask} appName={ask.thing.appName ?? ''} onDone={() => reply.cancel()} />);
-      return;
-    }
-    let mountedAt = ctx.path;
-    const moved = (place: Place) => {
-      const to = addressFor(window.location.pathname, mountedAt, place);
-      if (!to || to === window.location.pathname) return;
-      window.history.pushState(window.history.state, '', to);
-      mountedAt = pathFor(place);
-    };
-    root.render(
-      <ExplorerApp
-        api={apiFor(ctx)}
-        here={ctx.workspace.id}
-        userId={ctx.user.id}
-        admin={ctx.user.roles.includes('admin')}
-        place={placeForIntent(ctx.intent, ctx.workspace.id) ?? placeFor(ctx.path, ctx.workspace.id)}
-        onPlace={moved}
-      />,
-    );
-  },
-  unmount,
-  surfaces: {
-    /** The card on Home, on a team's floor or the org's: the way up from here, and three facts. */
-    './Glance': {
-      mount(el: HTMLElement, ctx: MountContext) {
-        rootIn(el).render(<Glance api={apiFor(ctx)} here={ctx.workspace.id} onOpen={(path) => void ctx.raise({ type: AUSPEX_OPEN, payload: { path } })} />);
-      },
-      unmount,
-    },
-  },
+export default defineReactApp<MountContext>({
+  name: APP_NAME,
+  App,
+  routes: places,
+  intents: { [AUSPEX_OPEN]: opensAt(AUSPEX_OPEN), [FLOOR_MAP]: opensAt(FLOOR_MAP) },
+  Picker: WhoCanOpen,
+  Glance: Card,
+  styles,
 });
