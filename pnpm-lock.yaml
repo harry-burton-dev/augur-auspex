@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@augur/app-tools':
-        specifier: npm:@harry-burton-dev/augur-app-tools@^0.4.0
-        version: '@harry-burton-dev/augur-app-tools@0.4.0(fastify@5.12.8)'
+        specifier: npm:@harry-burton-dev/augur-app-tools@^0.4.1
+        version: '@harry-burton-dev/augur-app-tools@0.4.3(fastify@5.12.8)'
       '@changesets/cli':
         specifier: ^2.31.1
         version: 2.31.1(@types/node@22.20.5)
@@ -510,8 +510,8 @@ packages:
       react: ^19.3.1
       react-dom: ^19.3.1
 
-  '@harry-burton-dev/augur-app-tools@0.4.0':
-    resolution: {integrity: sha512-jsZBYAAKoJR+MWjg2KVkYZDBlJSwsck2Ks65OZSQu4RsL8/T2zTdK1z4Pgse0HFY5PWv7fUPDTn91dwHhwHkLw==, tarball: https://npm.pkg.github.com/download/@harry-burton-dev/augur-app-tools/0.4.0/3ee30e4a0e123bf81a567ec7883cc93c528f2880}
+  '@harry-burton-dev/augur-app-tools@0.4.3':
+    resolution: {integrity: sha512-Y/G4Q2MmX9LiLRc4X0lkLJjtA9ckUD2HXbH2cO+dm7NrbSAAmFoHXnyGbd50qmUgCcl+kfjx3bjo2hNjQkaJ/A==, tarball: https://npm.pkg.github.com/download/@harry-burton-dev/augur-app-tools/0.4.3/2f0b7a3826f0370151e4f45501e2f7eaf0ad155e}
     hasBin: true
 
   '@harry-burton-dev/augur-kit-common@0.7.0':
@@ -533,8 +533,8 @@ packages:
     peerDependencies:
       fastify: ^5.6.0
 
-  '@harry-burton-dev/augur-service-kit@0.15.0':
-    resolution: {integrity: sha512-60yQOfDJ1u2Hwm0RfasME9gjWUDVUUrucUaM1h0e1z4dIZa6fcGQAf8b9qIVKamqnISo2wAutfKinenM2Rx3pw==, tarball: https://npm.pkg.github.com/download/@harry-burton-dev/augur-service-kit/0.15.0/54c02c187e176b74bf08544b8248ac788e1e4228}
+  '@harry-burton-dev/augur-service-kit@0.17.1':
+    resolution: {integrity: sha512-QcsiCU0hq3Klv3oaAf4IHD3i4D+UVsoefuVDHeMTKjd2gyT0eT591xYvHpneQqJhak7AfJNf3h1MwQL8PwYCpQ==, tarball: https://npm.pkg.github.com/download/@harry-burton-dev/augur-service-kit/0.17.1/9843b4e325f6dcd9c15370855699d1be06bf34cc}
     peerDependencies:
       fastify: ^5.6.0
 
@@ -3401,9 +3401,9 @@ snapshots:
       - '@types/react'
       - '@types/react-dom'
 
-  '@harry-burton-dev/augur-app-tools@0.4.0(fastify@5.12.8)':
+  '@harry-burton-dev/augur-app-tools@0.4.3(fastify@5.12.8)':
     dependencies:
-      '@augur/service-kit': '@harry-burton-dev/augur-service-kit@0.15.0(fastify@5.12.8)'
+      '@augur/service-kit': '@harry-burton-dev/augur-service-kit@0.17.1(fastify@5.12.8)'
       semver: 7.8.6
     transitivePeerDependencies:
       - '@dbos-inc/dbos-enterprise'
@@ -3443,7 +3443,7 @@ snapshots:
       - pg-native
       - supports-color
 
-  '@harry-burton-dev/augur-service-kit@0.15.0(fastify@5.12.8)':
+  '@harry-burton-dev/augur-service-kit@0.17.1(fastify@5.12.8)':
     dependencies:
       '@dbos-inc/dbos-sdk': 5.4.0
       '@opentelemetry/api': 1.10.0
@@ -3457,6 +3457,7 @@ snapshots:
       fastify: 5.12.8
       jose: 6.2.15
       nodemailer: 10.3.1
+      pino: 10.4.0
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
     transitivePeerDependencies:
