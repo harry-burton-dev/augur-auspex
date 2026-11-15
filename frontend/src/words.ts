@@ -112,7 +112,7 @@ export const changeLine = (c: Change, names: Record<string, string>, appName: (i
   }
 };
 
-/** What each kind of app is called (AUGUR ADR 0032). */
+/** What each kind of app is called (AUGUR ADR 0077). */
 export const KIND_WORDS = { platform: 'a platform app', pillar: 'a pillar app' } as const;
 
 /** A floor's apps in two groups: apps for the work (pillar apps and every other app), then apps for using AUGUR. */

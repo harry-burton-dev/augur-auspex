@@ -293,7 +293,7 @@ export function ExplorerApp({ api, here, userId, admin = false, children }: Expl
         />
       );
     if (!list) return <State kind="loading" heading="Looking at the apps here" size="line" />;
-    // Two groups by kind (ADR 0032): apps for the work, then apps for using AUGUR; in each, what they can use first, then by name.
+    // Two groups by kind (ADR 0077): apps for the work, then apps for using AUGUR; in each, what they can use first, then by name.
     const byUse = (a: FloorApp, b: FloorApp) => Number(usable(b)) - Number(usable(a)) || a.name.localeCompare(b.name);
     const groups = APP_GROUPS.map((g) => ({ ...g, apps: list.filter((a) => g.holds(a)).sort(byUse) })).filter((g) => g.apps.length);
     const where = f.kind === 'personal' ? 'your own floor' : f.name;
